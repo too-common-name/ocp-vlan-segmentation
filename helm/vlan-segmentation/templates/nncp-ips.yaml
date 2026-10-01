@@ -1,0 +1,46 @@
+{{/*
+  Per-node NNCPs: assign IPs to VLAN interfaces (or tear them down).
+  When cleanup=true, sets state: absent to remove interfaces cleanly.
+*/}}
+{{- range $node := .Values.nodes }}
+{{- range $nv := $node.vlans }}
+---
+apiVersion: nmstate.io/v1
+kind: NodeNetworkConfigurationPolicy
+metadata:
+  name: {{ $.Release.Name }}-{{ $node.name }}-vlan{{ $nv.id }}
+  labels:
+    {{- include "vlan-seg.labels" $ | nindent 4 }}
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: {{ $node.name }}
+  desiredState:
+    interfaces:
+    - name: {{ include "vlan-seg.ifname" (dict "root" $ "vlanId" $nv.id) }}
+      {{- if eq $.Values.bridgeType "ovs-bridge" }}
+      type: ovs-interface
+      {{- else }}
+      type: vlan
+      {{- end }}
+      {{- if $.Values.cleanup }}
+      state: absent
+      {{- else }}
+      state: up
+      {{- if ne $.Values.bridgeType "ovs-bridge" }}
+      vlan:
+        {{- if eq $.Values.bridgeType "vlan-subinterfaces" }}
+        base-iface: {{ $.Values.physicalInterface }}
+        {{- else if eq $.Values.bridgeType "linux-bridge" }}
+        base-iface: {{ $.Values.linuxBridge.name }}
+        {{- end }}
+        id: {{ $nv.id }}
+      {{- end }}
+      ipv4:
+        address:
+        - ip: {{ $nv.ip }}
+          prefix-length: {{ $nv.prefixLength }}
+        dhcp: false
+        enabled: true
+      {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,16 @@
+{{- if not .Values.cleanup }}
+{{- range .Values.vlans }}
+---
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: {{ $.Release.Name }}-pool-vlan{{ .id }}
+  namespace: {{ $.Values.metallb.namespace }}
+  labels:
+    {{- include "vlan-seg.labels" $ | nindent 4 }}
+spec:
+  addresses:
+  - {{ .poolStart }}-{{ .poolEnd }}
+  autoAssign: false
+{{- end }}
+{{- end }}

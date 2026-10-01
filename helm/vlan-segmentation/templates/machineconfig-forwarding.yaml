@@ -1,0 +1,40 @@
+{{/*
+  MachineConfig: enable IP forwarding on VLAN interfaces.
+  Uses a systemd unit that writes to /proc/sys directly,
+  which works regardless of interface naming (dots, etc.).
+
+  WARNING: MachineConfig triggers node drain + reboot.
+  For testing, use 'make set-forwarding' instead.
+*/}}
+{{- if .Values.forwarding.machineConfig }}
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: {{ .Release.Name }}-vlan-forwarding
+  labels:
+    machineconfiguration.openshift.io/role: worker
+    {{- include "vlan-seg.labels" . | nindent 4 }}
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    systemd:
+      units:
+      - name: vlan-forwarding.service
+        enabled: true
+        contents: |
+          [Unit]
+          Description=Enable IP forwarding on VLAN interfaces
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          {{- range .Values.vlans }}
+          ExecStart=/usr/bin/bash -c 'iface="{{ include "vlan-seg.ifname" (dict "root" $ "vlanId" .id) }}"; until [ -d /proc/sys/net/ipv4/conf/$iface ]; do sleep 1; done; echo 1 > /proc/sys/net/ipv4/conf/$iface/forwarding'
+          {{- end }}
+
+          [Install]
+          WantedBy=multi-user.target
+{{- end }}

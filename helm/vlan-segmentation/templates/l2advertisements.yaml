@@ -1,0 +1,17 @@
+{{- if not .Values.cleanup }}
+{{- range .Values.vlans }}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: {{ $.Release.Name }}-l2adv-vlan{{ .id }}
+  namespace: {{ $.Values.metallb.namespace }}
+  labels:
+    {{- include "vlan-seg.labels" $ | nindent 4 }}
+spec:
+  ipAddressPools:
+  - {{ $.Release.Name }}-pool-vlan{{ .id }}
+  interfaces:
+  - {{ include "vlan-seg.ifname" (dict "root" $ "vlanId" .id) }}
+{{- end }}
+{{- end }}

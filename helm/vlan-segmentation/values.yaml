@@ -1,0 +1,69 @@
+# -- Bridge type: ovs-bridge | vlan-subinterfaces | linux-bridge
+bridgeType: ovs-bridge
+
+# -- Physical NIC used for VLAN trunk
+physicalInterface: eno1
+
+# -- Node selector for the cluster-wide bridge NNCP
+nodeSelector:
+  node-role.kubernetes.io/worker: ""
+
+# -- VLAN definitions (MetalLB pools)
+vlans:
+  - id: 100
+    poolStart: "10.100.0.200"
+    poolEnd: "10.100.0.210"
+  - id: 200
+    poolStart: "10.200.0.200"
+    poolEnd: "10.200.0.210"
+
+# -- Per-node IP assignments
+nodes:
+  - name: overseer-1
+    vlans:
+      - id: 100
+        ip: "10.100.0.10"
+        prefixLength: 24
+      - id: 200
+        ip: "10.200.0.10"
+        prefixLength: 24
+  - name: overseer-2
+    vlans:
+      - id: 100
+        ip: "10.100.0.11"
+        prefixLength: 24
+      - id: 200
+        ip: "10.200.0.11"
+        prefixLength: 24
+  - name: overseer-3
+    vlans:
+      - id: 100
+        ip: "10.100.0.12"
+        prefixLength: 24
+      - id: 200
+        ip: "10.200.0.12"
+        prefixLength: 24
+
+# -- OVS bridge settings (only used when bridgeType=ovs-bridge)
+ovsBridge:
+  name: br-eno1
+  bridgeMapping:
+    enabled: true
+    localnet: localnet-eno1
+
+# -- Linux bridge settings (only used when bridgeType=linux-bridge)
+linuxBridge:
+  name: br-secondary
+
+# -- MetalLB namespace
+metallb:
+  namespace: metallb-system
+
+# -- IP forwarding via MachineConfig (systemd unit that enables
+#    forwarding on VLAN interfaces at boot). Triggers node reboot.
+forwarding:
+  machineConfig: true
+
+# -- Set to true to tear down: NNCPs render with state: absent,
+#    MetalLB resources are removed.  Used by 'make cleanup'.
+cleanup: false

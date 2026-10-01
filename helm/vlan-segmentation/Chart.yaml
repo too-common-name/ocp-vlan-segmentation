@@ -1,0 +1,7 @@
+apiVersion: v2
+name: vlan-segmentation
+description: >-
+  Network segmentation for industrial workloads on OpenShift.
+  Supports three bridge types: OVS bridge, VLAN subinterfaces, Linux bridge.
+version: 0.1.0
+appVersion: "1.0"

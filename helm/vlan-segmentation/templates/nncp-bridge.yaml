@@ -1,0 +1,68 @@
+{{/*
+  Cluster-wide NNCP for bridge creation / teardown.
+  Only rendered for ovs-bridge and linux-bridge (not vlan-subinterfaces).
+  When cleanup=true, sets state: absent to remove the bridge cleanly.
+*/}}
+{{- if ne .Values.bridgeType "vlan-subinterfaces" }}
+apiVersion: nmstate.io/v1
+kind: NodeNetworkConfigurationPolicy
+metadata:
+  name: {{ .Release.Name }}-bridge
+  labels:
+    {{- include "vlan-seg.labels" . | nindent 4 }}
+spec:
+  nodeSelector:
+    {{- toYaml .Values.nodeSelector | nindent 4 }}
+  desiredState:
+    interfaces:
+    {{- if eq .Values.bridgeType "ovs-bridge" }}
+    - name: {{ .Values.ovsBridge.name }}
+      type: ovs-bridge
+      {{- if .Values.cleanup }}
+      state: absent
+      {{- else }}
+      state: up
+      bridge:
+        allow-extra-patch-ports: true
+        options:
+          stp:
+            enabled: false
+        port:
+        - name: {{ .Values.physicalInterface }}
+        {{- range .Values.vlans }}
+        - name: vlan{{ .id }}
+          vlan:
+            mode: access
+            tag: {{ .id }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if eq .Values.bridgeType "linux-bridge" }}
+    - name: {{ .Values.linuxBridge.name }}
+      type: linux-bridge
+      {{- if .Values.cleanup }}
+      state: absent
+      {{- else }}
+      state: up
+      bridge:
+        options:
+          stp:
+            enabled: false
+        port:
+        - name: {{ .Values.physicalInterface }}
+          vlan:
+            enable-native: false
+            trunk-tags:
+            {{- range .Values.vlans }}
+            - id: {{ .id }}
+            {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- if and (not .Values.cleanup) (eq .Values.bridgeType "ovs-bridge") .Values.ovsBridge.bridgeMapping.enabled }}
+    ovn:
+      bridge-mappings:
+      - bridge: {{ .Values.ovsBridge.name }}
+        localnet: {{ .Values.ovsBridge.bridgeMapping.localnet }}
+        state: present
+    {{- end }}
+{{- end }}
