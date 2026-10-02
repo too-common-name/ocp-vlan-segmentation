@@ -41,6 +41,7 @@ spec:
           prefix-length: {{ $nv.prefixLength }}
         dhcp: false
         enabled: true
+        forwarding: true
       {{- end }}
 {{- end }}
 {{- end }}

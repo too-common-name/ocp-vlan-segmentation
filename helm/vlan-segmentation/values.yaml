@@ -59,11 +59,6 @@ linuxBridge:
 metallb:
   namespace: metallb-system
 
-# -- IP forwarding via MachineConfig (systemd unit that enables
-#    forwarding on VLAN interfaces at boot). Triggers node reboot.
-forwarding:
-  machineConfig: true
-
 # -- Set to true to tear down: NNCPs render with state: absent,
 #    MetalLB resources are removed.  Used by 'make cleanup'.
 cleanup: false
