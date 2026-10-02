@@ -46,10 +46,10 @@ nodes:
 
 # -- OVS bridge settings (only used when bridgeType=ovs-bridge)
 ovsBridge:
-  name: br-eno1
+  name: br-secondary
   bridgeMapping:
     enabled: true
-    localnet: localnet-eno1
+    localnet: localnet-br-secondary
 
 # -- Linux bridge settings (only used when bridgeType=linux-bridge)
 linuxBridge:
@@ -58,6 +58,11 @@ linuxBridge:
 # -- MetalLB namespace
 metallb:
   namespace: metallb-system
+
+# -- Test workloads: deploy a Namespace + Deployment + LoadBalancer Service
+#    per VLAN.  Uses agnhost netexec (HTTP on port 80 → 8080).
+test:
+  enabled: false
 
 # -- Set to true to tear down: NNCPs render with state: absent,
 #    MetalLB resources are removed.  Used by 'make cleanup'.
