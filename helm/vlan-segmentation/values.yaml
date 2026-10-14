@@ -58,7 +58,7 @@ metallb:
 # -- Test workloads: deploy a Namespace + Deployment + LoadBalancer Service
 #    per VLAN.  Uses agnhost netexec (HTTP on port 80 → 8080).
 test:
-  enabled: false
+  enabled: true
 
 # -- Set to true to tear down: NNCPs render with state: absent,
 #    MetalLB resources are removed.  Used by 'make cleanup'.
