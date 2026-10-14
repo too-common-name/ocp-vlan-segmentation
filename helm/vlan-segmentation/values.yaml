@@ -1,4 +1,4 @@
-# -- Bridge type: ovs-bridge | vlan-subinterfaces | linux-bridge
+# -- Bridge type: ovs-bridge | vlan-subinterfaces
 bridgeType: ovs-bridge
 
 # -- Physical NIC used for VLAN trunk
@@ -50,10 +50,6 @@ ovsBridge:
   bridgeMapping:
     enabled: true
     localnet: localnet-br-secondary
-
-# -- Linux bridge settings (only used when bridgeType=linux-bridge)
-linuxBridge:
-  name: br-secondary
 
 # -- MetalLB namespace
 metallb:

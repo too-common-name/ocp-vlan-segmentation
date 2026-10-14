@@ -1,0 +1,56 @@
+{{/*
+  Test workloads: one Namespace + Deployment + LoadBalancer Service per VLAN.
+  Only rendered when test.enabled=true. Skipped during cleanup.
+*/}}
+{{- if and .Values.test.enabled (not .Values.cleanup) }}
+{{- range $vlan := .Values.vlans }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $.Release.Name }}-test-vlan{{ $vlan.id }}
+  labels:
+    {{- include "vlan-seg.labels" $ | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-vlan{{ $vlan.id }}
+  namespace: {{ $.Release.Name }}-test-vlan{{ $vlan.id }}
+  labels:
+    {{- include "vlan-seg.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo-vlan{{ $vlan.id }}
+  template:
+    metadata:
+      labels:
+        app: echo-vlan{{ $vlan.id }}
+    spec:
+      containers:
+      - name: echo
+        image: registry.k8s.io/e2e-test-images/agnhost:2.39
+        args: ["netexec", "--http-port", "8080"]
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-vlan{{ $vlan.id }}
+  namespace: {{ $.Release.Name }}-test-vlan{{ $vlan.id }}
+  labels:
+    {{- include "vlan-seg.labels" $ | nindent 4 }}
+  annotations:
+    metallb.universe.tf/address-pool: {{ $.Release.Name }}-pool-vlan{{ $vlan.id }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: echo-vlan{{ $vlan.id }}
+  ports:
+  - port: 80
+    targetPort: 8080
+{{- end }}
+{{- end }}

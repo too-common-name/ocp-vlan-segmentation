@@ -9,9 +9,6 @@ deploy-ovs:
 deploy-vlan:
 	helm upgrade --install $(RELEASE) $(CHART) -f $(CHART)/values-vlan-subinterfaces.yaml
 
-deploy-linuxbr:
-	helm upgrade --install $(RELEASE) $(CHART) -f $(CHART)/values-linux-bridge.yaml
-
 # ─── Teardown (state: absent → wait → uninstall) ───────────────────
 
 teardown:
@@ -27,6 +24,3 @@ render-ovs:
 
 render-vlan:
 	helm template $(RELEASE) $(CHART) -f $(CHART)/values-vlan-subinterfaces.yaml
-
-render-linuxbr:
-	helm template $(RELEASE) $(CHART) -f $(CHART)/values-linux-bridge.yaml

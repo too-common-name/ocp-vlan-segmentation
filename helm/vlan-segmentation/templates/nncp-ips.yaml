@@ -26,13 +26,9 @@ spec:
       state: absent
       {{- else }}
       state: up
-      {{- if ne $.Values.bridgeType "ovs-bridge" }}
+      {{- if eq $.Values.bridgeType "vlan-subinterfaces" }}
       vlan:
-        {{- if eq $.Values.bridgeType "vlan-subinterfaces" }}
         base-iface: {{ $.Values.physicalInterface }}
-        {{- else if eq $.Values.bridgeType "linux-bridge" }}
-        base-iface: {{ $.Values.linuxBridge.name }}
-        {{- end }}
         id: {{ $nv.id }}
       {{- end }}
       ipv4:
