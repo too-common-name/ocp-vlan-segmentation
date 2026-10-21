@@ -1,22 +1,22 @@
 apiVersion: k8s.ovn.org/v1
 kind: ClusterUserDefinedNetwork
 metadata:
-  name: localnet-vlan100
+  name: localnet-vlan{{ .Values.vlanId }}
 spec:
   namespaceSelector:
     matchExpressions:
     - key: kubernetes.io/metadata.name
       operator: In
       values:
-      - clusters-hosted-vlan100
+      - clusters-{{ .Values.clusterName }}
   network:
     topology: Localnet
     localnet:
       role: Secondary
-      physicalNetworkName: localnet-br-secondary
+      physicalNetworkName: {{ .Values.localnet }}
       ipam:
         mode: Disabled
       vlan:
         mode: Access
         access:
-          id: 100
+          id: {{ .Values.vlanId }}

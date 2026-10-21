@@ -1,4 +1,4 @@
----
+{{- if .Values.test.enabled }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -21,10 +21,10 @@ spec:
     spec:
       containers:
       - name: echo
-        image: registry.k8s.io/e2e-test-images/agnhost:2.39
-        args: ["netexec", "--http-port", "8080"]
+        image: {{ .Values.test.image }}
+        args: ["netexec", "--http-port", "{{ .Values.test.port }}"]
         ports:
-        - containerPort: 8080
+        - containerPort: {{ .Values.test.port }}
 ---
 apiVersion: v1
 kind: Service
@@ -32,12 +32,12 @@ metadata:
   name: echo
   namespace: test-echo
   annotations:
-    metallb.universe.tf/address-pool: vlan-seg-pool-vlan100
+    metallb.universe.tf/address-pool: vlan-seg-pool-vlan{{ .Values.vlanId }}
 spec:
   type: LoadBalancer
-  allocateLoadBalancerNodePorts: false
   selector:
     app: echo
   ports:
   - port: 80
-    targetPort: 8080
+    targetPort: {{ .Values.test.port }}
+{{- end }}

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: hcp-cluster
+description: Per-VLAN resources for a Hosted Control Plane cluster (CUDN + test workloads)
+version: 0.1.0

@@ -2,30 +2,23 @@ OC     := oc
 HELM   := helm
 HCP    := hcp
 
-# --- Hosted cluster settings ---
-CLUSTER_NAME       := hosted-vlan100
-CLUSTER_NS         := clusters-$(CLUSTER_NAME)
-VLAN_ID            := 100
-NAD_NAME           := localnet-vlan100
-
 # --- Infrastructure (reuses logical-segmentation chart) ---
 INFRA_CHART        := ../logical-segmentation/helm/vlan-segmentation
 INFRA_RELEASE      := vlan-seg
+CHART              := helm/hcp-cluster
 
 # --- Worker VM sizing ---
 VM_CORES           := 4
 VM_MEMORY          := 8Gi
 NODE_POOL_REPLICAS := 1
 
-# --- Kubeconfig for the hosted cluster ---
-KUBECONFIG_HC      := $(CLUSTER_NAME)-kubeconfig
-
 .PHONY: help check-tools enable-hcp \
-        deploy-infra deploy-cudn create-cluster wait-cluster get-kubeconfig deploy-test \
-        status teardown teardown-test teardown-cluster teardown-cudn teardown-infra
+        deploy-infra deploy-vlan100 deploy-vlan200 deploy \
+        teardown-vlan100 teardown-vlan200 teardown-infra teardown \
+        status
 
 help: ## Show this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
 check-tools: ## Verify required CLI tools are installed
@@ -51,76 +44,6 @@ deploy-infra: check-tools ## Deploy OVS bridge + NNCPs + MetalLB (reuses logical
 		--for=condition=Available --timeout=120s
 	@echo "Infrastructure ready"
 
-deploy-cudn: check-tools ## Deploy ClusterUserDefinedNetwork (localnet VLAN)
-	@$(OC) apply -f manifests/cudn-vlan100.yaml
-	@echo "CUDN $(NAD_NAME) created (NAD will be auto-generated in $(CLUSTER_NS) when namespace exists)"
-
-create-cluster: check-tools ## Create hosted cluster (API via LoadBalancer, HCP private router)
-	@if $(OC) get hostedcluster $(CLUSTER_NAME) -n clusters >/dev/null 2>&1; then \
-		echo "HostedCluster $(CLUSTER_NAME) already exists, skipping creation"; \
-	else \
-		echo "Extracting pull-secret from hosting cluster..." && \
-		$(OC) get secret/pull-secret -n openshift-config \
-			-o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > /tmp/hcp-pull-secret.json && \
-		RELEASE_IMAGE=$$($(OC) get clusterversion version -o jsonpath='{.status.desired.image}') && \
-		echo "Creating hosted cluster (release: $$RELEASE_IMAGE)..." && \
-		$(HCP) create cluster kubevirt \
-			--name $(CLUSTER_NAME) \
-			--release-image $$RELEASE_IMAGE \
-			--pull-secret /tmp/hcp-pull-secret.json \
-			--node-pool-replicas $(NODE_POOL_REPLICAS) \
-			--memory $(VM_MEMORY) \
-			--cores $(VM_CORES) \
-			--additional-network name:$(NAD_NAME) \
-			--infra-availability-policy SingleReplica \
-			--control-plane-availability-policy SingleReplica && \
-		rm -f /tmp/hcp-pull-secret.json && \
-		echo "Hosted cluster creation started"; \
-	fi
-
-wait-cluster: ## Wait for hosted cluster and worker nodes to be ready
-	@echo "Waiting for HostedCluster $(CLUSTER_NAME) control plane (up to 30m)..."
-	@$(OC) wait hostedcluster/$(CLUSTER_NAME) -n clusters \
-		--for=condition=Available --timeout=30m
-	@echo "Control plane is available. Waiting for NodePool workers (up to 30m)..."
-	@$(OC) wait nodepool/$(CLUSTER_NAME) -n clusters \
-		--for=condition=Ready --timeout=30m
-	@echo "Hosted cluster $(CLUSTER_NAME) is fully ready (control plane + workers)"
-
-get-kubeconfig: ## Extract kubeconfig for the hosted cluster
-	@$(HCP) create kubeconfig --name $(CLUSTER_NAME) > $(KUBECONFIG_HC)
-	@echo "Kubeconfig saved to $(KUBECONFIG_HC)"
-
-deploy-test: get-kubeconfig ## Deploy test workloads on the hosted cluster
-	@echo "Deploying test workloads on $(CLUSTER_NAME)..."
-	@$(OC) --kubeconfig=$(KUBECONFIG_HC) apply -f manifests/test-workloads.yaml
-	@echo "Waiting for echo deployment to be ready..."
-	@$(OC) --kubeconfig=$(KUBECONFIG_HC) wait deployment/echo -n test-echo \
-		--for=condition=Available --timeout=5m
-	@echo "Test workloads deployed. Service details:"
-	@$(OC) --kubeconfig=$(KUBECONFIG_HC) get svc echo -n test-echo
-
-deploy: enable-hcp deploy-infra deploy-cudn create-cluster wait-cluster get-kubeconfig deploy-test ## Full deploy
-
-teardown-test: ## Remove test workloads from hosted cluster
-	@if [ -f $(KUBECONFIG_HC) ]; then \
-		echo "Removing test workloads..."; \
-		$(OC) --kubeconfig=$(KUBECONFIG_HC) delete -f manifests/test-workloads.yaml --ignore-not-found; \
-	else \
-		echo "No kubeconfig found, skipping test cleanup"; \
-	fi
-
-teardown-cluster: ## Destroy the hosted cluster
-	@echo "Destroying hosted cluster $(CLUSTER_NAME)..."
-	@$(HCP) destroy cluster kubevirt --name $(CLUSTER_NAME) || true
-	@echo "Waiting for namespace $(CLUSTER_NS) to be removed..."
-	@$(OC) wait namespace/$(CLUSTER_NS) --for=delete --timeout=15m 2>/dev/null || true
-	@rm -f $(KUBECONFIG_HC)
-	@echo "Hosted cluster destroyed"
-
-teardown-cudn: ## Remove the ClusterUserDefinedNetwork
-	@$(OC) delete -f manifests/cudn-vlan100.yaml --ignore-not-found 2>/dev/null || true
-
 teardown-infra: ## Teardown OVS bridge + NNCPs + MetalLB
 	@echo "Tearing down network infrastructure..."
 	@$(HELM) upgrade $(INFRA_RELEASE) $(INFRA_CHART) --reuse-values --set cleanup=true
@@ -128,8 +51,113 @@ teardown-infra: ## Teardown OVS bridge + NNCPs + MetalLB
 	@sleep 60
 	@$(OC) wait nncp -l app.kubernetes.io/instance=$(INFRA_RELEASE) \
 		--for=condition=Available --timeout=120s
-	@echo "NNCPs reconciled, uninstalling Helm release..."
 	@$(HELM) uninstall $(INFRA_RELEASE) --wait
 
-teardown: teardown-test teardown-cluster teardown-cudn teardown-infra ## Full teardown (reverse order)
+deploy-vlan100: check-tools ## Deploy hosted-vlan100 (CUDN + cluster + test workloads)
+	@echo "Applying CUDN for VLAN 100..."
+	@$(HELM) template hosted-vlan100 $(CHART) \
+		--set clusterName=hosted-vlan100,vlanId=100 \
+		-s templates/cudn.yaml | $(OC) apply -f -
+	@if $(OC) get hostedcluster hosted-vlan100 -n clusters >/dev/null 2>&1; then \
+		echo "HostedCluster hosted-vlan100 already exists, skipping creation"; \
+	else \
+		echo "Extracting pull-secret..." && \
+		$(OC) get secret/pull-secret -n openshift-config \
+			-o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > /tmp/hcp-pull-secret.json && \
+		RELEASE_IMAGE=$$($(OC) get clusterversion version -o jsonpath='{.status.desired.image}') && \
+		echo "Creating hosted cluster hosted-vlan100 (release: $$RELEASE_IMAGE)..." && \
+		$(HCP) create cluster kubevirt \
+			--name hosted-vlan100 \
+			--release-image $$RELEASE_IMAGE \
+			--pull-secret /tmp/hcp-pull-secret.json \
+			--node-pool-replicas $(NODE_POOL_REPLICAS) \
+			--memory $(VM_MEMORY) \
+			--cores $(VM_CORES) \
+			--additional-network name:localnet-vlan100 \
+			--infra-availability-policy SingleReplica \
+			--control-plane-availability-policy SingleReplica && \
+		rm -f /tmp/hcp-pull-secret.json; \
+	fi
+	@echo "Waiting for hosted-vlan100 control plane (up to 30m)..."
+	@$(OC) wait hostedcluster/hosted-vlan100 -n clusters --for=condition=Available --timeout=30m
+	@echo "Waiting for NodePool workers (up to 30m)..."
+	@$(OC) wait nodepool/hosted-vlan100 -n clusters --for=condition=Ready --timeout=30m
+	@$(HCP) create kubeconfig --name hosted-vlan100 > hosted-vlan100-kubeconfig
+	@echo "Deploying test workloads on hosted-vlan100..."
+	@$(HELM) template hosted-vlan100 $(CHART) \
+		--set clusterName=hosted-vlan100,vlanId=100 \
+		-s templates/test-workloads.yaml | $(OC) --kubeconfig=hosted-vlan100-kubeconfig apply -f -
+	@$(OC) --kubeconfig=hosted-vlan100-kubeconfig wait deployment/echo -n test-echo \
+		--for=condition=Available --timeout=5m
+	@echo "hosted-vlan100 ready. Service:"
+	@$(OC) --kubeconfig=hosted-vlan100-kubeconfig get svc echo -n test-echo
+
+teardown-vlan100: ## Teardown hosted-vlan100
+	@echo "Tearing down hosted-vlan100..."
+	@-$(OC) --kubeconfig=hosted-vlan100-kubeconfig delete ns test-echo --ignore-not-found
+	@$(HCP) destroy cluster kubevirt --name hosted-vlan100 || true
+	@$(OC) wait namespace/clusters-hosted-vlan100 --for=delete --timeout=15m 2>/dev/null || true
+	@$(HELM) template hosted-vlan100 $(CHART) \
+		--set clusterName=hosted-vlan100,vlanId=100 \
+		-s templates/cudn.yaml | $(OC) delete -f - --ignore-not-found 2>/dev/null || true
+	@rm -f hosted-vlan100-kubeconfig
+
+deploy-vlan200: check-tools ## Deploy hosted-vlan200 (CUDN + cluster + test workloads)
+	@echo "Applying CUDN for VLAN 200..."
+	@$(HELM) template hosted-vlan200 $(CHART) \
+		--set clusterName=hosted-vlan200,vlanId=200 \
+		-s templates/cudn.yaml | $(OC) apply -f -
+	@if $(OC) get hostedcluster hosted-vlan200 -n clusters >/dev/null 2>&1; then \
+		echo "HostedCluster hosted-vlan200 already exists, skipping creation"; \
+	else \
+		echo "Extracting pull-secret..." && \
+		$(OC) get secret/pull-secret -n openshift-config \
+			-o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > /tmp/hcp-pull-secret.json && \
+		RELEASE_IMAGE=$$($(OC) get clusterversion version -o jsonpath='{.status.desired.image}') && \
+		echo "Creating hosted cluster hosted-vlan200 (release: $$RELEASE_IMAGE)..." && \
+		$(HCP) create cluster kubevirt \
+			--name hosted-vlan200 \
+			--release-image $$RELEASE_IMAGE \
+			--pull-secret /tmp/hcp-pull-secret.json \
+			--node-pool-replicas $(NODE_POOL_REPLICAS) \
+			--memory $(VM_MEMORY) \
+			--cores $(VM_CORES) \
+			--additional-network name:localnet-vlan200 \
+			--infra-availability-policy SingleReplica \
+			--control-plane-availability-policy SingleReplica && \
+		rm -f /tmp/hcp-pull-secret.json; \
+	fi
+	@echo "Waiting for hosted-vlan200 control plane (up to 30m)..."
+	@$(OC) wait hostedcluster/hosted-vlan200 -n clusters --for=condition=Available --timeout=30m
+	@echo "Waiting for NodePool workers (up to 30m)..."
+	@$(OC) wait nodepool/hosted-vlan200 -n clusters --for=condition=Ready --timeout=30m
+	@$(HCP) create kubeconfig --name hosted-vlan200 > hosted-vlan200-kubeconfig
+	@echo "Deploying test workloads on hosted-vlan200..."
+	@$(HELM) template hosted-vlan200 $(CHART) \
+		--set clusterName=hosted-vlan200,vlanId=200 \
+		-s templates/test-workloads.yaml | $(OC) --kubeconfig=hosted-vlan200-kubeconfig apply -f -
+	@$(OC) --kubeconfig=hosted-vlan200-kubeconfig wait deployment/echo -n test-echo \
+		--for=condition=Available --timeout=5m
+	@echo "hosted-vlan200 ready. Service:"
+	@$(OC) --kubeconfig=hosted-vlan200-kubeconfig get svc echo -n test-echo
+
+teardown-vlan200: ## Teardown hosted-vlan200
+	@echo "Tearing down hosted-vlan200..."
+	@-$(OC) --kubeconfig=hosted-vlan200-kubeconfig delete ns test-echo --ignore-not-found
+	@$(HCP) destroy cluster kubevirt --name hosted-vlan200 || true
+	@$(OC) wait namespace/clusters-hosted-vlan200 --for=delete --timeout=15m 2>/dev/null || true
+	@$(HELM) template hosted-vlan200 $(CHART) \
+		--set clusterName=hosted-vlan200,vlanId=200 \
+		-s templates/cudn.yaml | $(OC) delete -f - --ignore-not-found 2>/dev/null || true
+	@rm -f hosted-vlan200-kubeconfig
+
+deploy: enable-hcp deploy-infra deploy-vlan100 deploy-vlan200 ## Full deploy (infra + both clusters)
+
+teardown: teardown-vlan200 teardown-vlan100 teardown-infra ## Full teardown (reverse order)
 	@echo "Full teardown complete"
+
+status: ## Show cluster status and VIPs
+	@$(OC) get hostedcluster,nodepool -n clusters 2>/dev/null || true
+	@echo "---"
+	@$(OC) get svc -n clusters-hosted-vlan100 --no-headers 2>/dev/null | grep LoadBalancer || true
+	@$(OC) get svc -n clusters-hosted-vlan200 --no-headers 2>/dev/null | grep LoadBalancer || true

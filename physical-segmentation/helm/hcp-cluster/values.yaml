@@ -1,0 +1,9 @@
+clusterName: hosted-vlan100
+vlanId: 100
+
+localnet: localnet-br-secondary
+
+test:
+  enabled: true
+  image: registry.k8s.io/e2e-test-images/agnhost:2.39
+  port: 8080
