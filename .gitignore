@@ -1,1 +1,3 @@
-*.docx
+physical-segmentation/hcp-credentials.yaml
+
+physical-segmentation/hosted-vlan100-kubeconfig
