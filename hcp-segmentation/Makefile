@@ -43,13 +43,20 @@ deploy-infra: check-tools ## Deploy OVS bridge + NNCPs + MetalLB (reuses logical
 	@echo "Infrastructure ready"
 
 teardown-infra: ## Teardown OVS bridge + NNCPs + MetalLB
+	@echo "Waiting for hosted cluster namespaces to be fully removed..."
+	@$(OC) wait namespace/clusters-hosted-vlan100 --for=delete --timeout=15m 2>/dev/null || true
+	@$(OC) wait namespace/clusters-hosted-vlan200 --for=delete --timeout=15m 2>/dev/null || true
 	@echo "Tearing down network infrastructure..."
-	@$(HELM) upgrade $(INFRA_RELEASE) $(INFRA_CHART) --reuse-values --set cleanup=true
-	@echo "Waiting 60s for NNCPs to reconcile cleanup..."
-	@sleep 60
-	@$(OC) wait nncp -l app.kubernetes.io/instance=$(INFRA_RELEASE) \
-		--for=condition=Available --timeout=120s
-	@$(HELM) uninstall $(INFRA_RELEASE) --wait
+	@if $(HELM) status $(INFRA_RELEASE) >/dev/null 2>&1; then \
+		$(HELM) upgrade $(INFRA_RELEASE) $(INFRA_CHART) --reuse-values --set cleanup=true; \
+		echo "Waiting 60s for NNCPs to reconcile cleanup..."; \
+		sleep 60; \
+		$(OC) wait nncp -l app.kubernetes.io/instance=$(INFRA_RELEASE) \
+			--for=condition=Available --timeout=120s; \
+		$(HELM) uninstall $(INFRA_RELEASE) --wait; \
+	else \
+		echo "Helm release $(INFRA_RELEASE) not found, skipping"; \
+	fi
 
 deploy-vlan100: check-tools ## Deploy hosted-vlan100 (CUDN + cluster + test workloads)
 	@echo "Applying CUDN for VLAN 100..."
@@ -92,8 +99,14 @@ deploy-vlan100: check-tools ## Deploy hosted-vlan100 (CUDN + cluster + test work
 
 teardown-vlan100: ## Teardown hosted-vlan100
 	@echo "Tearing down hosted-vlan100..."
-	@-$(OC) --kubeconfig=hosted-vlan100-kubeconfig delete ns test-echo --ignore-not-found
-	@$(HCP) destroy cluster kubevirt --name hosted-vlan100 || true
+	@if [ -f hosted-vlan100-kubeconfig ]; then \
+		$(OC) --kubeconfig=hosted-vlan100-kubeconfig delete ns test-echo --ignore-not-found 2>/dev/null || true; \
+	fi
+	@if $(OC) get hostedcluster hosted-vlan100 -n clusters >/dev/null 2>&1; then \
+		$(HCP) destroy cluster kubevirt --name hosted-vlan100; \
+	else \
+		echo "HostedCluster hosted-vlan100 not found, skipping destroy"; \
+	fi
 	@$(OC) wait namespace/clusters-hosted-vlan100 --for=delete --timeout=15m 2>/dev/null || true
 	@$(HELM) template hosted-vlan100 $(CHART) \
 		--set clusterName=hosted-vlan100,vlanId=100 \
@@ -141,8 +154,14 @@ deploy-vlan200: check-tools ## Deploy hosted-vlan200 (CUDN + cluster + test work
 
 teardown-vlan200: ## Teardown hosted-vlan200
 	@echo "Tearing down hosted-vlan200..."
-	@-$(OC) --kubeconfig=hosted-vlan200-kubeconfig delete ns test-echo --ignore-not-found
-	@$(HCP) destroy cluster kubevirt --name hosted-vlan200 || true
+	@if [ -f hosted-vlan200-kubeconfig ]; then \
+		$(OC) --kubeconfig=hosted-vlan200-kubeconfig delete ns test-echo --ignore-not-found 2>/dev/null || true; \
+	fi
+	@if $(OC) get hostedcluster hosted-vlan200 -n clusters >/dev/null 2>&1; then \
+		$(HCP) destroy cluster kubevirt --name hosted-vlan200; \
+	else \
+		echo "HostedCluster hosted-vlan200 not found, skipping destroy"; \
+	fi
 	@$(OC) wait namespace/clusters-hosted-vlan200 --for=delete --timeout=15m 2>/dev/null || true
 	@$(HELM) template hosted-vlan200 $(CHART) \
 		--set clusterName=hosted-vlan200,vlanId=200 \
