@@ -2,7 +2,7 @@ OC     := oc
 HELM   := helm
 HCP    := hcp
 
-INFRA_CHART        := ../logical-segmentation/helm/vlan-segmentation
+INFRA_CHART        := ../namespace-segmentation/helm/vlan-segmentation
 INFRA_RELEASE      := vlan-seg
 CHART              := helm/hcp-cluster
 
