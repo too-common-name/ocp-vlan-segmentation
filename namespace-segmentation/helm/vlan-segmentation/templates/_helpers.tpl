@@ -11,7 +11,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Interface name for a VLAN — always vlan<id>, regardless of bridgeType.
 This keeps MetalLB, L2Advertisement, and forwarding config identical
 across both approaches (OVS bridge and VLAN subinterfaces).
-Usage: {{ include "vlan-seg.ifname" (dict "root" $ "vlanId" 100) }}
+Usage: {{ include "vlan-seg.ifname" (dict "vlanId" 100) }}
 */}}
 {{- define "vlan-seg.ifname" -}}
 vlan{{ .vlanId }}

@@ -12,6 +12,6 @@ spec:
   ipAddressPools:
   - {{ $.Release.Name }}-pool-vlan{{ .id }}
   interfaces:
-  - {{ include "vlan-seg.ifname" (dict "root" $ "vlanId" .id) }}
+  - {{ include "vlan-seg.ifname" (dict "vlanId" .id) }}
 {{- end }}
 {{- end }}

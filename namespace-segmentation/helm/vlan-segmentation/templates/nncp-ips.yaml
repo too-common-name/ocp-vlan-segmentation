@@ -16,7 +16,7 @@ spec:
     kubernetes.io/hostname: {{ $node.name }}
   desiredState:
     interfaces:
-    - name: {{ include "vlan-seg.ifname" (dict "root" $ "vlanId" $nv.id) }}
+    - name: {{ include "vlan-seg.ifname" (dict "vlanId" $nv.id) }}
       {{- if eq $.Values.bridgeType "ovs-bridge" }}
       type: ovs-interface
       {{- else }}
