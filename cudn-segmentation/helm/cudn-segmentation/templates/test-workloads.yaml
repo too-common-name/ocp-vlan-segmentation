@@ -1,0 +1,38 @@
+{{- if and .Values.test.enabled (not .Values.cleanup) }}
+{{- range $vlan := .Values.vlans }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $.Release.Name }}-test-vlan{{ $vlan.id }}
+  labels:
+    {{- include "cudn-seg.labels" $ | nindent 4 }}
+    {{ $.Values.namespaceLabel }}: "vlan{{ $vlan.id }}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-vlan{{ $vlan.id }}
+  namespace: {{ $.Release.Name }}-test-vlan{{ $vlan.id }}
+  labels:
+    {{- include "cudn-seg.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo-vlan{{ $vlan.id }}
+  template:
+    metadata:
+      labels:
+        app: echo-vlan{{ $vlan.id }}
+      annotations:
+        k8s.v1.cni.cncf.io/networks: {{ $.Release.Name }}-localnet-vlan{{ $vlan.id }}
+    spec:
+      containers:
+      - name: echo
+        image: {{ $.Values.test.image }}
+        args: ["netexec", "--http-port", "8080"]
+        ports:
+        - containerPort: 8080
+{{- end }}
+{{- end }}

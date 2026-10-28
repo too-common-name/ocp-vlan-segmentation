@@ -1,0 +1,32 @@
+apiVersion: nmstate.io/v1
+kind: NodeNetworkConfigurationPolicy
+metadata:
+  name: {{ .Release.Name }}-bridge
+  labels:
+    {{- include "cudn-seg.labels" . | nindent 4 }}
+spec:
+  nodeSelector:
+    {{- toYaml .Values.nodeSelector | nindent 4 }}
+  desiredState:
+    interfaces:
+    - name: {{ .Values.ovsBridge.name }}
+      type: ovs-bridge
+      {{- if .Values.cleanup }}
+      state: absent
+      {{- else }}
+      state: up
+      bridge:
+        allow-extra-patch-ports: true
+        options:
+          stp:
+            enabled: false
+        port:
+        - name: {{ .Values.physicalInterface }}
+      {{- end }}
+    {{- if not .Values.cleanup }}
+    ovn:
+      bridge-mappings:
+      - bridge: {{ .Values.ovsBridge.name }}
+        localnet: {{ .Values.ovsBridge.bridgeMapping.localnet }}
+        state: present
+    {{- end }}

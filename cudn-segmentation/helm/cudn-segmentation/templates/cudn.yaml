@@ -1,0 +1,29 @@
+{{- if not .Values.cleanup }}
+{{- range .Values.vlans }}
+---
+apiVersion: k8s.ovn.org/v1
+kind: ClusterUserDefinedNetwork
+metadata:
+  name: {{ $.Release.Name }}-localnet-vlan{{ .id }}
+  labels:
+    {{- include "cudn-seg.labels" $ | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchLabels:
+      {{ $.Values.namespaceLabel }}: "vlan{{ .id }}"
+  network:
+    topology: Localnet
+    localnet:
+      role: Secondary
+      physicalNetworkName: {{ $.Values.ovsBridge.bridgeMapping.localnet }}
+      subnets:
+      - {{ .subnet | quote }}
+      ipam:
+        mode: Enabled
+        lifecycle: Persistent
+      vlan:
+        mode: Access
+        access:
+          id: {{ .id }}
+{{- end }}
+{{- end }}

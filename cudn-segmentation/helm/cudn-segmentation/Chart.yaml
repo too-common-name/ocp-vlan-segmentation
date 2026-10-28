@@ -1,0 +1,14 @@
+apiVersion: v2
+name: cudn-segmentation
+description: >-
+  VLAN connectivity for pods and VMs using ClusterUserDefinedNetwork (CUDN)
+  with OVN localnet topology. Pods get native IPs directly on physical VLANs
+  via a secondary interface — no MetalLB, no VIPs, no DNAT.
+version: 0.1.0
+appVersion: "1.0"
+kubeVersion: ">= 1.27.0"
+dependencies: []
+# Requirements:
+#   - kubernetes-nmstate operator
+#   - OVN-Kubernetes (default CNI on OpenShift 4.x)
+#   - ClusterUserDefinedNetwork API (OCP 4.18+)
