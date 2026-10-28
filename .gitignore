@@ -1,5 +1,4 @@
-physical-segmentation/hcp-credentials.yaml
+hcp-segmentation/hcp-credentials.yaml
 
-physical-segmentation/hosted-vlan100-kubeconfig
+hcp-segmentation/*-kubeconfig
 
-physical-segmentation/hosted-vlan200-kubeconfig

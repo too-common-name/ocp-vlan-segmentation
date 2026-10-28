@@ -2,12 +2,10 @@ OC     := oc
 HELM   := helm
 HCP    := hcp
 
-# --- Infrastructure (reuses logical-segmentation chart) ---
 INFRA_CHART        := ../logical-segmentation/helm/vlan-segmentation
 INFRA_RELEASE      := vlan-seg
 CHART              := helm/hcp-cluster
 
-# --- Worker VM sizing ---
 VM_CORES           := 4
 VM_MEMORY          := 8Gi
 NODE_POOL_REPLICAS := 1
