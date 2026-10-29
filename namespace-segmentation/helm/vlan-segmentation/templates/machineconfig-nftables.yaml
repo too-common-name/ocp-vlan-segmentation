@@ -1,0 +1,42 @@
+{{- if and .Values.vlanIsolation.enabled (not .Values.cleanup) }}
+{{- $nft := "table inet vlan-isolation {\n    chain prerouting {\n        type filter hook prerouting priority dstnat - 1; policy accept;\n" }}
+{{- range .Values.vlans }}
+{{- $nft = printf "%s        iifname \"%s\" ip daddr != %s counter drop\n" $nft (include "vlan-seg.ifname" (dict "vlanId" .id)) .subnet }}
+{{- end }}
+{{- $nft = printf "%s    }\n}\n" $nft }}
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  name: {{ .Release.Name }}-vlan-isolation-nftables
+  labels:
+    machineconfiguration.openshift.io/role: {{ .Values.vlanIsolation.role | default "worker" }}
+    {{- include "vlan-seg.labels" . | nindent 4 }}
+spec:
+  config:
+    ignition:
+      version: 3.2.0
+    storage:
+      files:
+        - path: /etc/nftables/vlan-isolation.nft
+          mode: 0644
+          overwrite: true
+          contents:
+            source: {{ printf "data:text/plain;charset=utf-8;base64,%s" ($nft | b64enc) }}
+    systemd:
+      units:
+        - name: vlan-isolation-nftables.service
+          enabled: true
+          contents: |
+            [Unit]
+            Description=Apply VLAN isolation nftables rules
+            After=network-online.target ovs-configuration.service
+            Wants=network-online.target
+
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/sbin/nft -f /etc/nftables/vlan-isolation.nft
+            RemainAfterExit=yes
+
+            [Install]
+            WantedBy=multi-user.target
+{{- end }}

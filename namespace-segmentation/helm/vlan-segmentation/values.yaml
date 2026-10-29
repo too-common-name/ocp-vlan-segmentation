@@ -8,12 +8,14 @@ physicalInterface: eno1
 nodeSelector:
   node-role.kubernetes.io/worker: ""
 
-# -- VLAN definitions (MetalLB pools)
+# -- VLAN definitions (MetalLB pools + subnet for nftables isolation)
 vlans:
   - id: 100
+    subnet: "10.100.0.0/24"
     poolStart: "10.100.0.200"
     poolEnd: "10.100.0.210"
   - id: 200
+    subnet: "10.200.0.0/24"
     poolStart: "10.200.0.200"
     poolEnd: "10.200.0.210"
 
@@ -59,6 +61,14 @@ metallb:
 #    per VLAN.  Uses agnhost netexec (HTTP on port 80 → 8080).
 test:
   enabled: true
+
+# -- nftables pre-filter: deploy a MachineConfig that blocks cross-VLAN
+#    VIP access at priority dstnat - 1 (before OVN-K's DNAT).
+#    Rules are generated from vlans[].id and vlans[].subnet.
+vlanIsolation:
+  enabled: true
+  # -- MachineConfigPool role to target (worker or master for compact clusters)
+  role: master
 
 # -- Set to true to tear down: NNCPs render with state: absent,
 #    MetalLB resources are removed.  Used by 'make cleanup'.
