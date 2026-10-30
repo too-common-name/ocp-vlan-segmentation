@@ -1,8 +1,3 @@
-{{/*
-  Cluster-wide NNCP for OVS bridge creation / teardown.
-  Only rendered for ovs-bridge (not vlan-subinterfaces).
-  When cleanup=true, sets state: absent to remove the bridge cleanly.
-*/}}
 {{- if eq .Values.bridgeType "ovs-bridge" }}
 apiVersion: nmstate.io/v1
 kind: NodeNetworkConfigurationPolicy

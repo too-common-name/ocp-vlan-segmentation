@@ -1,3 +1,2 @@
-# Override for VLAN subinterfaces scenario.
 # Usage: helm install ... -f values.yaml -f values-vlan-subinterfaces.yaml
 bridgeType: vlan-subinterfaces

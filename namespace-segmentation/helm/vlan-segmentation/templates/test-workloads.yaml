@@ -1,7 +1,3 @@
-{{/*
-  Test workloads: one Namespace + Deployment + LoadBalancer Service per VLAN.
-  Only rendered when test.enabled=true. Skipped during cleanup.
-*/}}
 {{- if and .Values.test.enabled (not .Values.cleanup) }}
 {{- range $vlan := .Values.vlans }}
 ---

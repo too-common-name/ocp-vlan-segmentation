@@ -1,14 +1,11 @@
-# -- Bridge type: ovs-bridge | vlan-subinterfaces
+# ovs-bridge | vlan-subinterfaces
 bridgeType: ovs-bridge
 
-# -- Physical NIC used for VLAN trunk
 physicalInterface: eno1
 
-# -- Node selector for the cluster-wide bridge NNCP
 nodeSelector:
   node-role.kubernetes.io/worker: ""
 
-# -- VLAN definitions (MetalLB pools + subnet for nftables isolation)
 vlans:
   - id: 100
     subnet: "10.100.0.0/24"
@@ -19,7 +16,6 @@ vlans:
     poolStart: "10.200.0.200"
     poolEnd: "10.200.0.210"
 
-# -- Per-node IP assignments
 nodes:
   - name: overseer-1
     vlans:
@@ -46,30 +42,23 @@ nodes:
         ip: "10.200.0.12"
         prefixLength: 24
 
-# -- OVS bridge settings (only used when bridgeType=ovs-bridge)
+# Only used when bridgeType=ovs-bridge
 ovsBridge:
   name: br-secondary
   bridgeMapping:
     enabled: true
     localnet: localnet-br-secondary
 
-# -- MetalLB namespace
 metallb:
   namespace: metallb-system
 
-# -- Test workloads: deploy a Namespace + Deployment + LoadBalancer Service
-#    per VLAN.  Uses agnhost netexec (HTTP on port 80 → 8080).
 test:
   enabled: true
 
-# -- nftables pre-filter: deploy a MachineConfig that blocks cross-VLAN
-#    VIP access at priority dstnat - 1 (before OVN-K's DNAT).
-#    Rules are generated from vlans[].id and vlans[].subnet.
+# nftables pre-filter — blocks cross-VLAN VIP access before OVN-K's DNAT
 vlanIsolation:
   enabled: true
-  # -- MachineConfigPool role to target (worker or master for compact clusters)
-  role: master
+  # worker or master (for compact clusters)
+  role: worker
 
-# -- Set to true to tear down: NNCPs render with state: absent,
-#    MetalLB resources are removed.  Used by 'make cleanup'.
 cleanup: false

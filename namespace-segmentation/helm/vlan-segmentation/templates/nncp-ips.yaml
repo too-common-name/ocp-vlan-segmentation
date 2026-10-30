@@ -1,7 +1,3 @@
-{{/*
-  Per-node NNCPs: assign IPs to VLAN interfaces (or tear them down).
-  When cleanup=true, sets state: absent to remove interfaces cleanly.
-*/}}
 {{- range $node := .Values.nodes }}
 {{- range $nv := $node.vlans }}
 ---

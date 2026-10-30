@@ -1,6 +1,3 @@
-{{/*
-Chart labels
-*/}}
 {{- define "cudn-seg.labels" -}}
 app.kubernetes.io/name: {{ .Chart.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}

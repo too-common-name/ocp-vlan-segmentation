@@ -1,35 +1,24 @@
-# -- Physical NIC used for VLAN trunk
 physicalInterface: eno1
 
-# -- Node selector for the cluster-wide bridge NNCP
 nodeSelector:
   node-role.kubernetes.io/worker: ""
 
-# -- VLAN definitions
-#    subnet defines the CIDR for OVN IPAM (IPs allocated from the full subnet).
 vlans:
   - id: 100
     subnet: "10.100.0.0/24"
   - id: 200
     subnet: "10.200.0.0/24"
 
-# -- OVS bridge settings
 ovsBridge:
   name: br-secondary
   bridgeMapping:
     localnet: localnet-br-secondary
 
-# -- Label key applied to namespaces that should receive the auto-generated NAD.
-#    The CUDN's namespaceSelector matches on: <namespaceLabel>: "vlan<id>"
+# CUDN namespaceSelector matches on: <namespaceLabel>: "vlan<id>"
 namespaceLabel: vlan-network
 
-# -- Test workloads: deploy one Namespace + Deployment per VLAN.
-#    Pods attach to the CUDN-generated NAD via annotation.
-#    OVN IPAM assigns IPs from the subnet range defined in vlans[].
 test:
   enabled: true
   image: registry.k8s.io/e2e-test-images/agnhost:2.39
 
-# -- Set to true to tear down: NNCP renders with state: absent,
-#    CUDNs and test workloads are removed.  Used by 'make teardown'.
 cleanup: false
